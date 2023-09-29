@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Haystack RAG Implementation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Fira Code', monospace;
+            background-color: #1F1F1F;
+        }
+
+        .header {
+            background-color: transparent;
+            color: #ffffff;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px #353535 solid;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .container {
+            padding: 15px;
+            padding-top: 10%;
+            border-right: 1px #353535 solid;
+            border-left: 1px #353535 solid;
+            height: 100vh;
+        }
+        textarea {
+            font-size: 16px;
+            border: 1px solid #353535 !important;
+            border-radius: 5px;
+            resize: none;
+            background-color: #282828 !important;
+            color:#ffffff !important;
+            font-weight: 600;
+        }
+        label {
+            color: #1FB8CD !important;
+            font-weight: 600;
+        }
+
+        .btn-md {
+            font-weight: 600;
+        }
+
+        #answer-div {
+            display: none;
+        }
+    </style>
+  </head>
+  <body>
+    <section>
+        <div class="header fixed-top w-100">
+            <h1>Haystack RAG Implementation</h1>
+        </div>
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-6 pe-4">
+                    <div class="mb-4">
+                        <label for="question" class="form-label h4 mb-3">Enter your query</label>
+                        <textarea class="form-control" id="question" rows="4"></textarea>
+                    </div>
+                    <div class="mb-5 text-end">
+                        <button type="button" class="btn btn-info btn-md" id="submit-btn">Submit</button>
+                    </div>
+                    
+                </div>
+                <div class="col-sm-6 ps-4">
+                    <div id="answer-div">
+                        <div class="mb-5">
+                            <label for="answer" class="form-label h4 mb-3">Answer</label>
+                            <textarea class="form-control" id="answer" rows="4" readonly></textarea>
+                        </div>
+                        <div class="mb-5">
+                            <label for="relevant-docs" class="form-label h4 mb-3">Relevant Documents</label>
+                            <textarea class="form-control" id="relevant-docs" rows="10" readonly></textarea>
+                        </div>
+                    </div>                    
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="modal fade" id="loader" tabindex="-1" aria-labelledby="loaderLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content bg-transparent">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-light" style="width: 10rem; height: 10rem;" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 class="text-center text-white mt-5">Generating Answer...</h5>
+            </div>
+          </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://kit.fontawesome.com/1da99de032.js" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script>
+      var question = document.getElementById('question');
+      var answerDiv = document.getElementById('answer-div');
+      var answer = document.getElementById('answer');
+      var relevantDocs = document.getElementById('relevant-docs');
+      var loader = document.getElementById('loader');
+      
+
+      $(document).ready(function () {
+          $("#submit-btn").click(async function (event) {
+              event.preventDefault();
+              const formData = new FormData();
+              const question = document.getElementById('question').value;
+              if (question == null || question == "") {
+                  Swal.fire({
+                      icon: 'error',
+                      title: 'Oops!!!',
+                      text: "Please enter your query!",
+                      allowOutsideClick: false,
+                      allowEscapeKey: false,
+                      confirmButtonColor: "#000"
+                  });
+              }else{                                    
+                  formData.append('question', question);
+                  $("#loader").modal("show"); 
+                  let response = await fetch('/get_answer', {
+                      method: "POST",
+                      body: formData                
+                  });                
+                  processAnswerResponse(response);   
+              }
+                           
+          });
+      });
+      
+      async function processAnswerResponse(response){
+          $("#loader").modal("hide");
+          switch (response.status) {
+              case 400:  
+                  Swal.fire({
+                      icon: 'error',
+                      title: 'Oops!!!',
+                      text: "Sorry, Couldn't be able to generate your response now. Please try after some time.",
+                      confirmButtonColor: "#040b14"
+                  })
+              break;
+              case 200:                      
+                  var json = await response.json(); 
+                  var answerResult = json.answer;
+                  var relevantDocumentsResult = json.relevant_documents;
+                  answerDiv.style.display = "block";
+                  answer.value = answerResult;
+                  relevantDocs.value = relevantDocumentsResult;
+                  break;
+              default:
+                  Swal.fire({
+                      icon: 'error',
+                      title: 'Oops!!!',
+                      text: "There is a "+response.status+" error. Please contact admin for support.",
+                      confirmButtonColor: "#040b14"
+                  })
+          }
+      }
+
+      question.onchange = function () {
+          answerDiv.style.display = "none";
+      }
+
+  </script>
+  </body>
+</html>
