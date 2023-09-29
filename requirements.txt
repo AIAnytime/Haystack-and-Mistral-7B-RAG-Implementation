@@ -1,0 +1,10 @@
+llama-cpp-python
+cached_property
+farm-haystack
+fastapi
+streamlit
+uvicorn
+farm-haystack[weaviate]
+pypdf
+torch
+sentence_transformers
